@@ -30,10 +30,11 @@ public:
     struct {
       uint8_t sync;
       uint16_t access_request;
-      uint16_t package_length;
+      uint16_t request_package_length;
+      uint16_t response_package_length;
       uint8_t checksum;
     } __attribute__((packed));
-    uint8_t buffer[6];
+    uint8_t buffer[8];
   } __attribute__((packed)) comms_packet_header_t;
 
   typedef union _comms_packet_t {
@@ -61,11 +62,10 @@ public:
   void transmit();
   uint8_t receive();
 
-  _comms_access_request_t current_access_request;
+  comms_access_request_t access_request;
 private:
-  _comms_access_request_t last_access_request;
-  uint8_t current_tx_data_length;
-  uint8_t last_rx_data_length;
+  comms_access_request_t access_request_old;
+  comms_packet_header_t header_old;
 };
 
 class CommsSlave: public Comms {

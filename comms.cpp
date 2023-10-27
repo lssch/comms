@@ -27,99 +27,106 @@ void CommsMaster::transmit() {
   // Generate a new request header based on the current request
   comms_packet_header_t header = {
           .sync = SYNC,
-          .access_request = static_cast<uint16_t>((current_access_request.state << 8) |
-                                                  (current_access_request.parameter << 6) |
-                                                  (current_access_request.data << 4) |
-                                                  (current_access_request.sensor << 2) |
-                                                  (current_access_request.state << 0)),
-          .package_length = 0,
+          .access_request = static_cast<uint16_t>((access_request.state << 8) |
+                                                  (access_request.parameter << 6) |
+                                                  (access_request.data << 4) |
+                                                  (access_request.sensor << 2) |
+                                                  (access_request.state << 0)),
+          .request_package_length = 0,
+          .response_package_length = 0,
           .checksum = 0
   };
 
   // Copy current values to the tx buffer based on the current request
-  uint16_t tx_index = 0;
-  last_rx_data_length = sizeof(comms_packet_header_t);
-  switch (current_access_request.state) {
+  switch (access_request.state) {
     case COMMS_ACCESS_REQUEST_SET:
-      memcpy(&tx_packet->data.buffer[tx_index], &data->state, sizeof(state_t));
-      tx_index += sizeof(state_t);
+      memcpy(&tx_packet->data.buffer[header.request_package_length], &data->state, sizeof(state_t));
+      header.request_package_length += sizeof(state_t);
       break;
     case COMMS_ACCESS_REQUEST_GET:
-      last_rx_data_length += sizeof(state_t);
+      header.response_package_length += sizeof(state_t);
       break;
     case COMMS_ACCESS_REQUEST_IGNORE:
       break;
   }
-  switch (current_access_request.sensor) {
+  switch (access_request.sensor) {
     case COMMS_ACCESS_REQUEST_SET:
-      memcpy(&tx_packet->data.buffer[tx_index], &data->sensor, sizeof(sensor_t));
-      tx_index += sizeof(sensor_t);
+      memcpy(&tx_packet->data.buffer[header.request_package_length], &data->sensor, sizeof(sensor_t));
+      header.request_package_length += sizeof(sensor_t);
       break;
     case COMMS_ACCESS_REQUEST_GET:
-      last_rx_data_length += sizeof(sensor_t);
+      header.response_package_length += sizeof(sensor_t);
       break;
     case COMMS_ACCESS_REQUEST_IGNORE:
       break;
   }
-  switch (current_access_request.data) {
+  switch (access_request.data) {
     case COMMS_ACCESS_REQUEST_SET:
-      memcpy(&tx_packet->data.buffer[tx_index], &data->data, sizeof(data_t));
-      tx_index += sizeof(data_t);
+      memcpy(&tx_packet->data.buffer[header.request_package_length], &data->data, sizeof(data_t));
+      header.request_package_length += sizeof(data_t);
       break;
     case COMMS_ACCESS_REQUEST_GET:
-      last_rx_data_length += sizeof(data_t);
+      header.response_package_length += sizeof(data_t);
       break;
     case COMMS_ACCESS_REQUEST_IGNORE:
       break;
   }
-  switch (current_access_request.parameter) {
+  switch (access_request.parameter) {
     case COMMS_ACCESS_REQUEST_SET:
-      memcpy(&tx_packet->data.buffer[tx_index], &data->parameter, sizeof(parameter_t));
-      tx_index += sizeof(parameter_t);
+      memcpy(&tx_packet->data.buffer[header.request_package_length], &data->parameter, sizeof(parameter_t));
+      header.request_package_length += sizeof(parameter_t);
       break;
     case COMMS_ACCESS_REQUEST_GET:
-      last_rx_data_length += sizeof(parameter_t);
+      header.response_package_length += sizeof(parameter_t);
       break;
     case COMMS_ACCESS_REQUEST_IGNORE:
       break;
   }
-  switch (current_access_request.request) {
+  switch (access_request.request) {
     case COMMS_ACCESS_REQUEST_SET:
-      memcpy(&tx_packet->data.buffer[tx_index], &data->request, sizeof(request_t));
-      tx_index += sizeof(request_t);
+      memcpy(&tx_packet->data.buffer[header.request_package_length], &data->request, sizeof(request_t));
+      header.request_package_length += sizeof(request_t);
       break;
     case COMMS_ACCESS_REQUEST_GET:
-      last_rx_data_length += sizeof(request_t);
+      header.response_package_length += sizeof(request_t);
       break;
     case COMMS_ACCESS_REQUEST_IGNORE:
       break;
   }
 
   // Set the dynamic part of the header
-  header.package_length = sizeof(comms_packet_header_t) + tx_index;
-  header.checksum = checksum(tx_packet->data.buffer, header.package_length);
+  header.request_package_length += sizeof(comms_packet_header_t);
+  header.response_package_length += sizeof(comms_packet_header_t);
+  header.checksum = checksum(tx_packet->data.buffer, header.request_package_length);
   memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
-
-  // Update data for the next request
-  last_access_request = current_access_request;
 
   cout << "tx_header: ";
   for (uint32_t i = 0; i < sizeof(comms_packet_header_t); ++i) {
     cout << +tx_packet->header.buffer[i] << " ";
   }
-  cout << endl;
+  cout << "(" << sizeof(comms_packet_header_t) << ")" << endl;
 
-  current_tx_data_length = (last_rx_data_length > tx_packet->header.package_length) ? last_rx_data_length : tx_packet->header.package_length;
   cout << "tx_packet: ";
-  for (uint32_t i = 0; i < current_tx_data_length - sizeof(comms_packet_header_t); ++i) {
+  for (uint32_t i = 0; i < header.request_package_length - sizeof(comms_packet_header_t); ++i) {
     cout << +tx_packet->data.buffer[i] << " ";
   }
-  cout << endl;
+  cout << "(" << +tx_packet->header.request_package_length - sizeof(comms_packet_header_t) << ")" << endl;
 
-  cout << "tx_package is " << +tx_packet->header.package_length << " bytes long";
-  if (last_rx_data_length > tx_packet->header.package_length)
-    cout << " Adding " << +last_rx_data_length - tx_packet->header.package_length << " extra Bytes for the rx_packet of the last request";
-  cout << endl;
+  cout << "tx_packet length: ";
+  if (header_old.response_package_length > header.request_package_length)
+    cout << header_old.response_package_length;
+  else
+    cout << header.request_package_length;
+  cout << " (" << sizeof(comms_packet_header_t) << ", " << +tx_packet->header.request_package_length - sizeof(comms_packet_header_t) << ", ";
+  if (header_old.response_package_length > header.request_package_length)
+    cout << header_old.response_package_length - header.request_package_length;
+  else
+    cout << "0";
+  cout << ") -> (H, D, B)" << endl;
+
+  // Update data for the next request
+  access_request_old = access_request;
+  header_old = header;
 }
 
 uint8_t CommsMaster::receive() {
@@ -130,36 +137,36 @@ uint8_t CommsMaster::receive() {
   }
   cout << endl;
 
-  cout << "rx_packet: ";
-  for (uint32_t i = 0; i < rx_packet->header.package_length - sizeof(comms_packet_header_t); ++i) {
+  cout << "rx_packet content: ";
+  for (uint32_t i = 0; i < rx_packet->header.response_package_length - sizeof(comms_packet_header_t); ++i) {
     cout << +rx_packet->data.buffer[i] << " ";
   }
   cout << endl;
 
-  cout << "rx_package is " << +rx_packet->header.package_length << " bytes long" << endl;
+  cout << "rx_package length: " << +rx_packet->header.response_package_length << " bytes" << endl;
 
   // Validate the received package
-  uint16_t rx_packet_calculated_checksum = checksum(rx_packet->data.buffer, rx_packet->header.package_length);
+  uint16_t rx_packet_calculated_checksum = checksum(rx_packet->data.buffer, rx_packet->header.response_package_length);
   if (rx_packet->header.sync == SYNC && rx_packet->header.checksum == rx_packet_calculated_checksum) {
     uint16_t rx_index = 0;
     // Coppy the valid data witch was generated by the access request from the last cycle into the local ram
-    if (last_access_request.state == COMMS_ACCESS_REQUEST_GET) {
+    if (access_request_old.state == COMMS_ACCESS_REQUEST_GET) {
       memcpy(&data->state, &rx_packet->data.buffer[rx_index], sizeof(state_t));
       rx_index += sizeof(state_t);
     }
-    if (last_access_request.sensor == COMMS_ACCESS_REQUEST_GET) {
+    if (access_request_old.sensor == COMMS_ACCESS_REQUEST_GET) {
       memcpy(&data->sensor, &rx_packet->data.buffer[rx_index], sizeof(sensor_t));
       rx_index += sizeof(sensor_t);
     }
-    if (last_access_request.data == COMMS_ACCESS_REQUEST_GET) {
+    if (access_request_old.data == COMMS_ACCESS_REQUEST_GET) {
       memcpy(&data->data, &rx_packet->data.buffer[rx_index], sizeof(data_t));
       rx_index += sizeof(data_t);
     }
-    if (last_access_request.parameter == COMMS_ACCESS_REQUEST_GET) {
+    if (access_request_old.parameter == COMMS_ACCESS_REQUEST_GET) {
       memcpy(&data->parameter, &rx_packet->data.buffer[rx_index], sizeof(parameter_t));
       rx_index += sizeof(parameter_t);
     }
-    if (last_access_request.request == COMMS_ACCESS_REQUEST_GET) {
+    if (access_request_old.request == COMMS_ACCESS_REQUEST_GET) {
       memcpy(&data->request, &rx_packet->data.buffer[rx_index], sizeof(request_t));
       rx_index += sizeof(request_t);
     }
@@ -171,7 +178,6 @@ uint8_t CommsMaster::receive() {
     if (rx_packet->header.checksum != rx_packet_calculated_checksum)
       cout << " Checksum is wrong got: " << rx_packet_calculated_checksum << " expected: " << +rx_packet->header.checksum << endl;
   }
-
   return EXIT_FAILURE;
 }
 
@@ -183,13 +189,13 @@ uint8_t CommsSlave::response() {
   }
   cout << endl;
 
-  cout << "rx_packet: ";
-  for (uint32_t i = 0; i < rx_packet->header.package_length - sizeof(comms_packet_header_t); ++i) {
+  cout << "rx_packet content: ";
+  for (uint32_t i = 0; i < rx_packet->header.request_package_length - sizeof(comms_packet_header_t); ++i) {
     cout << +rx_packet->data.buffer[i] << " ";
   }
   cout << endl;
 
-  cout << "rx_package is " << +rx_packet->header.package_length << " bytes long" << endl;
+  cout << "rx_package length: " << +rx_packet->header.request_package_length << endl;
 
   // Build the current access type structure
   comms_access_request_t access_type = {
@@ -201,7 +207,7 @@ uint8_t CommsSlave::response() {
   };
 
   // Validate the incoming data and response accordingly
-  uint8_t calculated_checksum = checksum(rx_packet->data.buffer, rx_packet->header.package_length);
+  uint8_t calculated_checksum = checksum(rx_packet->data.buffer, rx_packet->header.request_package_length);
   if (rx_packet->header.sync != SYNC || rx_packet->header.checksum != calculated_checksum) {
     cout <<"Dropping curren package... Package is corrupted.";
     if (rx_packet->header.sync != SYNC) cout << " SYNC byte is invalid";
@@ -210,79 +216,74 @@ uint8_t CommsSlave::response() {
     return EXIT_FAILURE;
   }
 
-  uint16_t rx_index = 0, tx_index = 0;
-
   // Generate a response header
   comms_packet_header_t header = {
           .sync = SYNC,
-          .package_length = 0,
+          .request_package_length = 0,
+          .response_package_length = 0,
           .checksum = 0
   };
 
   switch (access_type.state) {
     case COMMS_ACCESS_REQUEST_GET:
-      memcpy(&tx_packet->data.buffer[tx_index], &data->state, sizeof(state_t));
-      tx_index += sizeof(state_t);
+      memcpy(&tx_packet->data.buffer[header.response_package_length], &data->state, sizeof(state_t));
+      header.response_package_length += sizeof(state_t);
       break;
     case COMMS_ACCESS_REQUEST_SET:
-      memcpy(&data->state, &rx_packet->data.buffer[rx_index], sizeof(state_t));
-      rx_index += sizeof(request_t);
+      memcpy(&data->state, &rx_packet->data.buffer[header.request_package_length], sizeof(state_t));
+      header.request_package_length += sizeof(state_t);
     case COMMS_ACCESS_REQUEST_IGNORE:
       break;
   }
-
   switch (access_type.sensor) {
     case COMMS_ACCESS_REQUEST_GET:
-      memcpy(&tx_packet->data.buffer[tx_index], &data->sensor, sizeof(sensor_t));
-      tx_index += sizeof(sensor_t);
+      memcpy(&tx_packet->data.buffer[header.response_package_length], &data->sensor, sizeof(sensor_t));
+      header.response_package_length += sizeof(sensor_t);
       break;
     case COMMS_ACCESS_REQUEST_SET:
-      memcpy(&data->sensor, &rx_packet->data.buffer[rx_index], sizeof(sensor_t));
-      rx_index += sizeof(request_t);
+      memcpy(&data->sensor, &rx_packet->data.buffer[header.request_package_length], sizeof(sensor_t));
+      header.request_package_length += sizeof(sensor_t);
     case COMMS_ACCESS_REQUEST_IGNORE:
       break;
   }
-
   switch (access_type.data) {
     case COMMS_ACCESS_REQUEST_GET:
-      memcpy(&tx_packet->data.buffer[tx_index], &data->data, sizeof(data_t));
-      tx_index += sizeof(data_t);
+      memcpy(&tx_packet->data.buffer[header.response_package_length], &data->data, sizeof(data_t));
+      header.response_package_length += sizeof(data_t);
       break;
     case COMMS_ACCESS_REQUEST_SET:
-      memcpy(&data->data, &rx_packet->data.buffer[rx_index], sizeof(data_t));
-      rx_index += sizeof(request_t);
+      memcpy(&data->data, &rx_packet->data.buffer[header.request_package_length], sizeof(data_t));
+      header.request_package_length += sizeof(data_t);
     case COMMS_ACCESS_REQUEST_IGNORE:
       break;
   }
-
   switch (access_type.parameter) {
     case COMMS_ACCESS_REQUEST_GET:
-      memcpy(&tx_packet->data.buffer[tx_index], &data->parameter, sizeof(parameter_t));
-      tx_index += sizeof(parameter_t);
+      memcpy(&tx_packet->data.buffer[header.response_package_length], &data->parameter, sizeof(parameter_t));
+      header.response_package_length += sizeof(parameter_t);
       break;
     case COMMS_ACCESS_REQUEST_SET:
-      memcpy(&data->parameter, &rx_packet->data.buffer[rx_index], sizeof(parameter_t));
-      rx_index += sizeof(parameter_t);
+      memcpy(&data->parameter, &rx_packet->data.buffer[header.request_package_length], sizeof(parameter_t));
+      header.request_package_length += sizeof(parameter_t);
     case COMMS_ACCESS_REQUEST_IGNORE:
       break;
   }
-
   switch (access_type.request) {
     case COMMS_ACCESS_REQUEST_GET:
-      memcpy(&tx_packet->data.buffer[tx_index], &data->request, sizeof(request_t));
-      tx_index += sizeof(request_t);
+      memcpy(&tx_packet->data.buffer[header.response_package_length], &data->request, sizeof(request_t));
+      header.response_package_length += sizeof(request_t);
       break;
     case COMMS_ACCESS_REQUEST_SET:
-      memcpy(&data->request, &rx_packet->data.buffer[rx_index], sizeof(request_t));
-      rx_index += sizeof(request_t);
+      memcpy(&data->request, &rx_packet->data.buffer[header.request_package_length], sizeof(request_t));
+      header.request_package_length += sizeof(request_t);
     case COMMS_ACCESS_REQUEST_IGNORE:
       break;
   }
 
   // Set the dynamic part of the header
-  header.package_length = sizeof(comms_packet_header_t) + tx_index;
-  header.checksum = checksum(tx_packet->data.buffer, header.package_length);
-
+  header.response_package_length += sizeof(comms_packet_header_t);
+  header.request_package_length += sizeof(comms_packet_header_t);
+  header.checksum = checksum(tx_packet->data.buffer, header.response_package_length);
   memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
 
   printf("SLAVE: TX-PART\n");
@@ -291,16 +292,16 @@ uint8_t CommsSlave::response() {
   for (uint32_t i = 0; i < sizeof(comms_packet_header_t); ++i) {
     cout << +tx_packet->header.buffer[i] << " ";
   }
-  cout << endl;
+  cout << "(" << sizeof(comms_packet_header_t) << ")" << endl;
 
-  cout << "tx_packet: ";
-  for (uint32_t i = 0; i < tx_packet->header.package_length - sizeof(comms_packet_header_t); ++i) {
+  cout << "tx_packet content: ";
+  for (uint32_t i = 0; i < header.response_package_length - sizeof(comms_packet_header_t); ++i) {
     cout << +tx_packet->data.buffer[i] << " ";
   }
-  cout << endl;
+  cout << "(" << +header.response_package_length - sizeof(comms_packet_header_t) << ")" << endl;
 
-  cout << "tx_package access request is: " << +tx_packet->header.access_request << endl;
-  cout << "tx_package is " << +tx_packet->header.package_length << " bytes long" << endl;
+  cout << "tx_packet length: " << +header.response_package_length << " (" << sizeof(comms_packet_header_t) << ", "
+  << +header.response_package_length - sizeof(comms_packet_header_t) << ", 0) -> (H, D, B)" << endl;
 
   return EXIT_SUCCESS;
 }
