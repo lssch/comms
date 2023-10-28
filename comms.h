@@ -8,6 +8,11 @@
 #include <cstdint>
 #include "../types/types.h"
 
+#define RESET   "\033[0m"
+#define RED     "\033[31m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+
 #define SYNC 0xAA
 
 class Comms {
@@ -29,10 +34,10 @@ public:
   typedef union _comms_packet_header_t {
     struct {
       uint8_t sync;
-      uint16_t access_request;
-      uint16_t request_package_length;
-      uint16_t response_package_length;
-      uint8_t checksum;
+      uint16_t access_type;
+      uint16_t request_data_length;
+      uint16_t response_data_length;
+      uint8_t crc;
     } __attribute__((packed));
     uint8_t buffer[8];
   } __attribute__((packed)) comms_packet_header_t;
@@ -48,7 +53,7 @@ public:
   Comms(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data);
 
 protected:
-  uint8_t checksum(const uint8_t *data_, uint16_t length);
+  inline uint8_t crc(const uint8_t *data_, uint16_t length);
 
   comms_packet_t* rx_packet;
   comms_packet_t* tx_packet;
@@ -59,10 +64,9 @@ class CommsMaster: public Comms {
 public:
   CommsMaster(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data)
   : Comms(ptr_rx_data, ptr_tx_data, ptr_data) {};
-  void transmit();
-  uint8_t receive();
+  uint8_t exchange(comms_access_request_t access_request);
 
-  comms_access_request_t access_request;
+  //comms_access_request_t access_type;
 private:
   comms_access_request_t access_request_old;
   comms_packet_header_t header_old;
