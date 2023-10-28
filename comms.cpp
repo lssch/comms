@@ -18,13 +18,7 @@ inline uint8_t Comms::crc(const uint8_t *data_, uint16_t length) {
   }
   return sum;
 }
-/**
- * Exchaning a package with a slave device in realtime.
- * 1. prepare a tx_packet
- * 2. simultainius send and receive a tx- and rx-packet.
- * 3. validate rx_packet
- * @return
- */
+
 uint8_t CommsMaster::exchange(comms_access_request_t access_request) {
   std::cout << "MASTER" << std::endl;
   // Generate a new request header based on the current request
@@ -111,7 +105,7 @@ uint8_t CommsMaster::exchange(comms_access_request_t access_request) {
 
   std::cout << "tx-length: ";
   if (header_old.response_data_length > header.request_data_length)
-    std::cout << header_old.response_data_length + sizeof(comms_packet_t);
+    std::cout << header_old.response_data_length + sizeof(comms_packet_header_t);
   else
     std::cout << header.request_data_length + sizeof(comms_packet_header_t);
   std::cout << RESET << " (" << RED << sizeof(comms_packet_header_t) << RESET << ", "
@@ -127,7 +121,6 @@ uint8_t CommsMaster::exchange(comms_access_request_t access_request) {
   // Update data for the next request
   access_request_old = access_request;
   header_old = header;
-
 
   // TODO: SPI exchange
 
