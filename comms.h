@@ -5,6 +5,7 @@
 #ifndef COMMS_H
 #define COMMS_H
 
+#include "stm32f4xx_hal.h"
 #include <cstdint>
 #include "../types/types.h"
 
@@ -50,7 +51,10 @@ public:
     uint8_t buffer[sizeof(comms_packet_header_t) + sizeof(robocar_data_t)];
   } comms_packet_t;
 
-  Comms(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data);
+  Comms(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data):
+    rx_packet(ptr_rx_data),
+    tx_packet(ptr_tx_data),
+    data(ptr_data) {};
 
 protected:
   inline uint8_t crc(const uint8_t *data_, uint16_t length);
@@ -74,9 +78,13 @@ private:
 
 class CommsSlave: public Comms {
 public:
-  CommsSlave(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data)
-  : Comms(ptr_rx_data, ptr_tx_data, ptr_data) {};
+  CommsSlave(SPI_HandleTypeDef *hspi, robocar_data_t* ptr_data)
+  : Comms(&rx_packet_container, &tx_packet_container, ptr_data) {};
   uint8_t response();
+private:
+  comms_packet_t rx_packet_container;
+  comms_packet_t tx_packet_container;
+  SPI_HandleTypeDef *hspi;
 };
 
 #endif //COMMS_H

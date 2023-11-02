@@ -5,11 +5,7 @@
 #include "comms.h"
 #include <iostream>
 #include <bitset>
-
-Comms::Comms(Comms::comms_packet_t *ptr_rx_data, Comms::comms_packet_t *ptr_tx_data, robocar_data_t *ptr_data):
-  rx_packet(ptr_rx_data),
-  tx_packet(ptr_tx_data),
-  data(ptr_data) {}
+#include <cstring>
 
 inline uint8_t Comms::crc(const uint8_t *data_, uint16_t length) {
   uint8_t sum = 0;
