@@ -9,10 +9,11 @@
 # define PLATFORM_ESP 1
 # define PLATFORM_STM 2
 
-#define TARGET_PLATFORM PLATFORM_ARM
+#define TARGET_PLATFORM PLATFORM_STM
 
 #if TARGET_PLATFORM == PLATFORM_STM
 #include "stm32f4xx_hal.h"
+#include "types/types.h"
 # elif TARGET_PLATFORM == PLATFORM_ESP
 #include "ESP32DMASPIMaster.h"
 #include "types/types.h"
@@ -102,8 +103,10 @@ private:
 class CommsSlave: public Comms {
 public:
 #if TARGET_PLATFORM == PLATFORM_STM
+  Comms::comms_packet_t rx_packet_buffer;
+  Comms::comms_packet_t tx_packet_buffer;
   CommsSlave(SPI_HandleTypeDef *hspi, robocar_data_t* ptr_data)
-    : Comms(&rx_packet_container, &tx_packet_container, ptr_data) {};
+    : Comms(&rx_packet_buffer, &tx_packet_buffer, ptr_data) {};
 # elif TARGET_PLATFORM == PLATFORM_ARM
   CommsSlave(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data)
           : Comms(ptr_rx_data, ptr_tx_data, ptr_data) {};

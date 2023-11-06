@@ -19,7 +19,7 @@ uint8_t CommsMaster::exchange(comms_access_request_t access_request) {
   std::cout << "MASTER" << std::endl;
   // Generate a new request header based on the current request
 // TODO: WTF why? It works on ARM Platform but not on AVR
-#if TARGET_PLATFORM == PLATFORM_ARM
+#if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_STM
   comms_packet_header_t header = {
           .sync = SYNC,
           .access_type = static_cast<uint16_t>((access_request.request << 8) |
@@ -224,7 +224,7 @@ uint8_t CommsSlave::response() {
 
   // Generate a response header
 // TODO: WTF why? It works on ARM Platform but not on AVR
-#if TARGET_PLATFORM == PLATFORM_ARM
+#if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_STM
   comms_packet_header_t header = {
           .sync = SYNC,
           .access_type = static_cast<uint16_t>((access_request.request << 8) |
