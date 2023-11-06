@@ -208,7 +208,7 @@ uint8_t CommsSlave::response() {
     if (rx_packet->header.sync != SYNC) std::cout << " SYNC byte is invalid";
     if (rx_packet->header.crc != calculated_checksum)
       std::cout << " Checksum is wrong got: " << +calculated_checksum << " expected: " << +rx_packet->header.crc << std::endl;
-    return EXIT_FAILURE;
+    return EXIT_SUCCESS;
   }
 
   // Generate a response header
@@ -297,5 +297,7 @@ uint8_t CommsSlave::response() {
             << GREEN << +tx_packet->header.response_data_length << RESET
             << ") -> (H, D)" << std::endl;
 
-  return EXIT_SUCCESS;
+  HAL_SPI_Transmit_DMA(hspi, tx_packet->buffer, tx_packet->header.response_data_length);
+
+  return EXIT_FAILURE;
 }
