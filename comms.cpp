@@ -18,6 +18,8 @@ inline uint8_t Comms::crc(const uint8_t *data_, uint16_t length) {
 uint8_t CommsMaster::exchange(comms_access_request_t access_request) {
   std::cout << "MASTER" << std::endl;
   // Generate a new request header based on the current request
+// TODO: WTF why? It works on ARM Platform but not on AVR
+#if TARGET_PLATFORM == PLATFORM_ARM
   comms_packet_header_t header = {
           .sync = SYNC,
           .access_type = static_cast<uint16_t>((access_request.request << 8) |
@@ -29,6 +31,16 @@ uint8_t CommsMaster::exchange(comms_access_request_t access_request) {
           .response_data_length = 0,
           .crc = 0
   };
+#elif TARGET_PLATFORM == PLATFORM_ESP
+  comms_packet_header_t header;
+  header.sync = SYNC;
+  header.access_type = static_cast<uint16_t>((access_request.request << 8) | (access_request.parameter << 6) |
+                                             (access_request.data << 4) | (access_request.sensor << 2) |
+                                             (access_request.state << 0));
+  header.request_data_length = 0;
+  header.response_data_length = 0;
+  header.crc = 0;
+#endif
 
   // Copy current values to the tx buffer based on the current request and calculate the corresponding response package length.
   switch (access_request.state) {
@@ -113,7 +125,6 @@ uint8_t CommsMaster::exchange(comms_access_request_t access_request) {
   std::cout << RESET << ") -> (H, D, B)" << std::endl;
 
   // Update data for the next request
-  access_request_old = access_request;
   header_old = header;
 
   // TODO: SPI exchange
@@ -212,17 +223,29 @@ uint8_t CommsSlave::response() {
   }
 
   // Generate a response header
+// TODO: WTF why? It works on ARM Platform but not on AVR
+#if TARGET_PLATFORM == PLATFORM_ARM
   comms_packet_header_t header = {
           .sync = SYNC,
           .access_type = static_cast<uint16_t>((access_request.request << 8) |
-                  (access_request.parameter << 6) |
-                  (access_request.data << 4) |
-                  (access_request.sensor << 2) |
-                  (access_request.state << 0)),
+                                               (access_request.parameter << 6) |
+                                               (access_request.data << 4) |
+                                               (access_request.sensor << 2) |
+                                               (access_request.state << 0)),
           .request_data_length = 0,
           .response_data_length = 0,
           .crc = 0
   };
+#elif TARGET_PLATFORM == PLATFORM_ESP
+  comms_packet_header_t header;
+  header.sync = SYNC;
+  header.access_type = static_cast<uint16_t>((access_request.request << 8) | (access_request.parameter << 6) |
+                                             (access_request.data << 4) | (access_request.sensor << 2) |
+                                             (access_request.state << 0));
+  header.request_data_length = 0;
+  header.response_data_length = 0;
+  header.crc = 0;
+#endif
 
   switch (access_request.state) {
     case COMMS_ACCESS_REQUEST_GET:
@@ -297,7 +320,9 @@ uint8_t CommsSlave::response() {
             << GREEN << +tx_packet->header.response_data_length << RESET
             << ") -> (H, D)" << std::endl;
 
+#if TARGET_PLATFORM == PLATFORM_STM
   HAL_SPI_Transmit_DMA(hspi, tx_packet->buffer, tx_packet->header.response_data_length);
+#endif
 
   return EXIT_FAILURE;
 }

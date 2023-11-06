@@ -5,14 +5,26 @@
 #ifndef COMMS_H
 #define COMMS_H
 
+# define PLATFORM_ARM 0
+# define PLATFORM_ESP 1
+# define PLATFORM_STM 2
+
+#define TARGET_PLATFORM PLATFORM_ARM
+
+#if TARGET_PLATFORM == PLATFORM_STM
 #include "stm32f4xx_hal.h"
-#include <cstdint>
+# elif TARGET_PLATFORM == PLATFORM_ESP
+#include "ESP32DMASPIMaster.h"
+#include "types/types.h"
+# elif TARGET_PLATFORM == PLATFORM_ARM
 #include "../types/types.h"
+#endif
 
 #define RESET   "\033[0m"
 #define RED     "\033[31m"
 #define GREEN   "\033[32m"
 #define YELLOW  "\033[33m"
+#include <cstdint>
 
 #define SYNC 0xAA
 
@@ -52,9 +64,9 @@ public:
   } comms_packet_t;
 
   Comms(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data):
-    rx_packet(ptr_rx_data),
-    tx_packet(ptr_tx_data),
-    data(ptr_data) {};
+          rx_packet(ptr_rx_data),
+          tx_packet(ptr_tx_data),
+          data(ptr_data) {};
 
 protected:
   inline uint8_t crc(const uint8_t *data_, uint16_t length);
@@ -66,25 +78,41 @@ protected:
 
 class CommsMaster: public Comms {
 public:
+# if TARGET_PLATFORM == PLATFORM_ESP
+  CommsMaster(ESP32DMASPI::Master *spi_master, robocar_data_t* data)
+          : Comms(rx_packet_buffer, tx_packet_buffer, data) {
+    // allocate memory for dma buffer and start dma slave with custom configuration
+    rx_packet_buffer = reinterpret_cast<Comms::comms_packet_t *>(spi_master->allocDMABuffer(sizeof(Comms::comms_packet_t)));
+    tx_packet_buffer = reinterpret_cast<Comms::comms_packet_t *>(spi_master->allocDMABuffer(sizeof(Comms::comms_packet_t)));
+    spi_master->setMaxTransferSize(sizeof(Comms::comms_packet_t));
+  };
+# elif TARGET_PLATFORM == PLATFORM_ARM
   CommsMaster(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data)
-  : Comms(ptr_rx_data, ptr_tx_data, ptr_data) {};
+          : Comms(ptr_rx_data, ptr_tx_data, ptr_data) {};
+#endif
   uint8_t exchange(comms_access_request_t access_request);
-
-  //comms_access_request_t access_type;
 private:
-  comms_access_request_t access_request_old;
   comms_packet_header_t header_old;
+#if TARGET_PLATFORM == PLATFORM_ESP
+  Comms::comms_packet_t* rx_packet_buffer;
+  Comms::comms_packet_t* tx_packet_buffer;
+#endif
 };
 
 class CommsSlave: public Comms {
 public:
+#if TARGET_PLATFORM == PLATFORM_STM
   CommsSlave(SPI_HandleTypeDef *hspi, robocar_data_t* ptr_data)
-  : Comms(&rx_packet_container, &tx_packet_container, ptr_data) {};
+    : Comms(&rx_packet_container, &tx_packet_container, ptr_data) {};
+# elif TARGET_PLATFORM == PLATFORM_ARM
+  CommsSlave(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data)
+          : Comms(ptr_rx_data, ptr_tx_data, ptr_data) {};
+#endif
   uint8_t response();
 private:
-  comms_packet_t rx_packet_container;
-  comms_packet_t tx_packet_container;
+#if TARGET_PLATFORM == PLATFORM_STM
   SPI_HandleTypeDef *hspi;
+#endif
 };
 
 #endif //COMMS_H
