@@ -128,11 +128,13 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
   std::cout << RESET << ") -> (H, D, B)" << std::endl;
 #endif
 
+#if TARGET_PLATFORM == PLATFORM_ESP
   // TODO: Not sure if the length must be a multiple of 4. Got some warning in the code: [WARN] DMA buffer size must be multiples of 4 bytes
   if (header_old.response_data_length > header.request_data_length)
     spi->transfer(tx_packet->buffer, rx_packet->buffer, header_old.response_data_length + sizeof(comms_packet_header_t));
   else
     spi->transfer(tx_packet->buffer, rx_packet->buffer, header.request_data_length + sizeof(comms_packet_header_t));
+#endif
 
   // Update data for the next request
   header_old = header;

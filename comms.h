@@ -10,7 +10,7 @@
 # define PLATFORM_STM 2
 
 
-#define TARGET_PLATFORM PLATFORM_ESP
+#define TARGET_PLATFORM PLATFORM_STM
 
 #if TARGET_PLATFORM == PLATFORM_STM
 #include "stm32f4xx_hal.h"
@@ -114,7 +114,7 @@ namespace Comms {
   class CommsSlave: public Comms {
   public:
 #if TARGET_PLATFORM == PLATFORM_STM
-    Comms::comms_packet_t rx_packet_dma;
+  Comms::comms_packet_t rx_packet_dma;
   Comms::comms_packet_t tx_packet_dma;
   CommsSlave(SPI_HandleTypeDef *hspi, robocar_data_t* ptr_data)
     : Comms(&rx_packet_dma, &tx_packet_dma, ptr_data) {};
