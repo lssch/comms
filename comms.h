@@ -15,6 +15,10 @@
 #if TARGET_PLATFORM == PLATFORM_STM
 #include "stm32f4xx_hal.h"
 #include "types/types.h"
+#define RESET ""
+#define RED ""
+#define GREEN ""
+#define YELLOW ""
 # elif TARGET_PLATFORM == PLATFORM_ESP
 #include "ESP32DMASPIMaster.h"
 #include "types/types.h"
@@ -24,6 +28,11 @@
 #define YELLOW ""
 # elif TARGET_PLATFORM == PLATFORM_ARM
 #include "../types/types.h"
+<<<<<<< Updated upstream
+=======
+# elif TARGET_PLATFORM == PLATFORM_ARM
+#include "../types/types.h"
+>>>>>>> Stashed changes
 #define RESET   "\033[0m"
 #define RED     "\033[31m"
 #define GREEN   "\033[32m"
@@ -34,22 +43,24 @@
 
 #define SYNC 0xAA
 
+enum class AccessRequestTypes: uint8_t {
+  IGNORE = 0,
+  SET,
+  GET,
+};
+
+class __attribute__ ((__packed__)) AccessRequest {
+public:
+  AccessRequestTypes state;
+  AccessRequestTypes sensor;
+  AccessRequestTypes data;
+  AccessRequestTypes parameter;
+  AccessRequestTypes request;
+};
+
+
 class Comms {
 public:
-  typedef enum _comms_access_type_e {
-    COMMS_ACCESS_REQUEST_IGNORE = 0,
-    COMMS_ACCESS_REQUEST_SET,
-    COMMS_ACCESS_REQUEST_GET,
-  } __attribute__((packed)) comms_access_type_e;
-
-  typedef struct _comms_access_request_t {
-    comms_access_type_e state;
-    comms_access_type_e sensor;
-    comms_access_type_e data;
-    comms_access_type_e parameter;
-    comms_access_type_e request;
-  } __attribute__((packed)) comms_access_request_t;
-
   typedef union _comms_packet_header_t {
     struct {
       uint8_t sync;
@@ -91,7 +102,7 @@ public:
   CommsMaster(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data)
           : Comms(ptr_rx_data, ptr_tx_data, ptr_data) {};
 #endif
-  uint8_t exchange(comms_access_request_t access_request);
+  uint8_t exchange(AccessRequest access_request);
 private:
   comms_packet_header_t header_old{};
 #if TARGET_PLATFORM == PLATFORM_ESP
