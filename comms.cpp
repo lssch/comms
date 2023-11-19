@@ -7,7 +7,7 @@
 #include <bitset>
 #include <cstring>
 
-inline uint8_t Comms::crc(const uint8_t *data_, uint16_t length) {
+inline uint8_t Comms::Comms::crc(const uint8_t *data_, uint16_t length) {
   uint8_t sum = 0;
   for (uint16_t i = 0; i < length; ++i) {
     sum += data_[i];
@@ -15,7 +15,7 @@ inline uint8_t Comms::crc(const uint8_t *data_, uint16_t length) {
   return sum;
 }
 
-uint8_t CommsMaster::exchange(AccessRequest access_request) {
+uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
   std::cout << "MASTER" << std::endl;
   // Generate a new request header based on the current request
 // TODO: WTF why? It works on ARM Platform but not on AVR! Same implementation on both devices
@@ -34,9 +34,11 @@ uint8_t CommsMaster::exchange(AccessRequest access_request) {
 #elif TARGET_PLATFORM == PLATFORM_ESP
   comms_packet_header_t header;
   header.sync = SYNC;
-  header.access_type = static_cast<uint16_t>((access_request.request << 8) | (access_request.parameter << 6) |
-                                             (access_request.data << 4) | (access_request.sensor << 2) |
-                                             (access_request.state << 0));
+  header.access_type = static_cast<uint16_t>((static_cast<uint8_t>(access_request.request) << 8) |
+                                             (static_cast<uint8_t>(access_request.parameter) << 6) |
+                                             (static_cast<uint8_t>(access_request.data) << 4) |
+                                             (static_cast<uint8_t>(access_request.sensor) << 2) |
+                                             (static_cast<uint8_t>(access_request.state) << 0)),
   header.request_data_length = 0;
   header.response_data_length = 0;
   header.crc = 0;
@@ -103,6 +105,7 @@ uint8_t CommsMaster::exchange(AccessRequest access_request) {
   header.crc = crc(tx_packet->data.buffer, header.response_data_length);
   memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
 
+#if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "tx-packet: " << RED;
   for (uint8_t byte : tx_packet->header.buffer)
     std::cout << +byte << " ";
@@ -123,6 +126,7 @@ uint8_t CommsMaster::exchange(AccessRequest access_request) {
   else
     std::cout << YELLOW << "0";
   std::cout << RESET << ") -> (H, D, B)" << std::endl;
+#endif
 
   // TODO: Not sure if the length must be a multiple of 4. Got some warning in the code: [WARN] DMA buffer size must be multiples of 4 bytes
   if (header_old.response_data_length > header.request_data_length)
@@ -133,6 +137,7 @@ uint8_t CommsMaster::exchange(AccessRequest access_request) {
   // Update data for the next request
   header_old = header;
 
+#if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "rx-packet: " << RED;
   for (uint8_t byte : rx_packet->header.buffer)
     std::cout << +byte << " ";
@@ -145,28 +150,17 @@ uint8_t CommsMaster::exchange(AccessRequest access_request) {
   std::cout << RESET << " (" << RED << sizeof(comms_packet_header_t) << RESET << ", "
             << GREEN << +rx_packet->header.response_data_length << RESET
             << ") -> (H, D)" << std::endl;
+#endif
 
-<<<<<<< Updated upstream
-=======
-
-  AccessRequest access_response = {
-          .state = static_cast<AccessRequestTypes>(rx_packet->header.access_type & 0b00000000000011),
-          .sensor = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b0000000000001100) >> 2),
-          .data = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b0000000000110000) >> 4),
-          .parameter = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b0000000011000000) >> 6),
-          .request = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b0000001100000000) >> 8),
-  };
-
->>>>>>> Stashed changes
   // Validate the received package
   uint8_t calculated_checksum = crc(rx_packet->data.buffer, rx_packet->header.response_data_length);
   if (rx_packet->header.sync == SYNC && rx_packet->header.crc == calculated_checksum) {
-    comms_access_request_t access_response = {
-            .state = static_cast<comms_access_type_e>((rx_packet->header.access_type & 0b00000000000011)),
-            .sensor = static_cast<comms_access_type_e>((rx_packet->header.access_type & 0b0000000000001100) >> 2),
-            .data = static_cast<comms_access_type_e>((rx_packet->header.access_type & 0b0000000000110000) >> 4),
-            .parameter = static_cast<comms_access_type_e>((rx_packet->header.access_type & 0b0000000011000000) >> 6),
-            .request = static_cast<comms_access_type_e>((rx_packet->header.access_type & 0b0000001100000000) >> 8),
+    AccessRequest access_response = {
+            .state = static_cast<AccessRequestTypes>(rx_packet->header.access_type & 0b00000000000011),
+            .sensor = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b0000000000001100) >> 2),
+            .data = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b0000000000110000) >> 4),
+            .parameter = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b0000000011000000) >> 6),
+            .request = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b0000001100000000) >> 8),
     };
 
     uint16_t rx_index = 0;
@@ -203,7 +197,7 @@ uint8_t CommsMaster::exchange(AccessRequest access_request) {
   return EXIT_SUCCESS;
 }
 
-uint8_t CommsSlave::response() {
+uint8_t Comms::CommsSlave::response() {
 #if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "SLAVE" << std::endl;
   std::cout << "rx-packet: " << RED;
@@ -256,11 +250,11 @@ uint8_t CommsSlave::response() {
 #elif TARGET_PLATFORM == PLATFORM_ESP
   comms_packet_header_t header;
   header.sync = SYNC;
-  .access_type = static_cast<uint16_t>((static_cast<uint8_t>(access_request.request) << 8) |
-          (static_cast<uint8_t>(access_request.parameter) << 6) |
-          (static_cast<uint8_t>(access_request.data) << 4) |
-          (static_cast<uint8_t>(access_request.sensor) << 2) |
-          (static_cast<uint8_t>(access_request.state) << 0)),
+  header.access_type = static_cast<uint16_t>((static_cast<uint8_t>(access_request.request) << 8) |
+                                             (static_cast<uint8_t>(access_request.parameter) << 6) |
+                                             (static_cast<uint8_t>(access_request.data) << 4) |
+                                             (static_cast<uint8_t>(access_request.sensor) << 2) |
+                                             (static_cast<uint8_t>(access_request.state) << 0)),
   header.request_data_length = 0;
   header.response_data_length = 0;
   header.crc = 0;
