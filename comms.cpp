@@ -15,6 +15,10 @@ inline uint8_t Comms::Comms::crc(const uint8_t *data_, uint16_t length) {
   return sum;
 }
 
+uint8_t Comms::Comms::exchange() {
+  return 0;
+}
+
 uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
   std::cout << "MASTER" << std::endl;
   // Generate a new request header based on the current request
@@ -44,7 +48,7 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
   header.crc = 0;
 #endif
 
-  // Copy current values to the tx buffer based on the current request and calculate the corresponding response package length.
+  // Copy current values to the tx buffer based on the current request and calculate the corresponding excange package length.
   switch (access_request.state) {
     case AccessRequestTypes::SET:
       memcpy(&tx_packet->data.buffer[header.request_data_length], &data->state, sizeof(State::State));
@@ -199,7 +203,7 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
   return EXIT_SUCCESS;
 }
 
-uint8_t Comms::CommsSlave::response() {
+uint8_t Comms::CommsSlave::exchange() {
 #if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "SLAVE" << std::endl;
   std::cout << "rx-packet: " << RED;
@@ -224,7 +228,7 @@ uint8_t Comms::CommsSlave::response() {
           .request = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b0000001100000000) >> 8),
   };
 
-  // Validate the incoming data and response accordingly
+  // Validate the incoming data and excange accordingly
   uint8_t calculated_checksum = crc(rx_packet->data.buffer, rx_packet->header.response_data_length);
   if (rx_packet->header.sync != SYNC || rx_packet->header.crc != calculated_checksum) {
     std::cout <<"Dropping curren package... Package is corrupted.";
@@ -235,7 +239,7 @@ uint8_t Comms::CommsSlave::response() {
     return EXIT_FAILURE;
   }
 
-  // Generate a response header
+  // Generate a excange header
   // TODO: WTF why? It works on ARM Platform but not on AVR
 #if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_STM
   comms_packet_header_t header = {

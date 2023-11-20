@@ -88,6 +88,7 @@ namespace Comms {
 
   protected:
     inline uint8_t crc(const uint8_t *data_, uint16_t length);
+    virtual uint8_t exchange();
 
     comms_packet_t* rx_packet;
     comms_packet_t* tx_packet;
@@ -103,7 +104,7 @@ namespace Comms {
     CommsMaster(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data)
           : Comms(ptr_rx_data, ptr_tx_data, ptr_data) {};
 #endif
-    uint8_t exchange(AccessRequest access_request);
+    virtual uint8_t exchange(AccessRequest access_request);
   private:
     comms_packet_header_t header_old{};
 #if TARGET_PLATFORM == PLATFORM_ESP
@@ -122,7 +123,7 @@ namespace Comms {
     CommsSlave(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data)
           : Comms(ptr_rx_data, ptr_tx_data, ptr_data) {};
 #endif
-    uint8_t response();
+    virtual uint8_t exchange();
   private:
 #if TARGET_PLATFORM == PLATFORM_STM
     SPI_HandleTypeDef *hspi;
