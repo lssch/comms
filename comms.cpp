@@ -3,7 +3,6 @@
 //
 
 #include "comms.h"
-#include "main.h"
 #include <iostream>
 #include <bitset>
 #include <cstring>
@@ -21,7 +20,9 @@ uint8_t Comms::Comms::exchange() {
 }
 
 uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
+#if TARGET_PLATFORM == PLATFORM_ESP
   set_led(led, {.red = 0, .green = 0, .blue = 255, .brightness = 50});
+#endif
   // Generate a new request header based on the current request
 // TODO: WTF why? It works on ARM Platform but not on AVR! Same implementation on both devices
 #if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_STM
@@ -200,10 +201,14 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
     if (rx_packet->header.crc != calculated_checksum)
       std::cout << " Checksum is wrong got: " << +calculated_checksum << " expected: " << +rx_packet->header.crc;
     std::cout << std::endl;
+#if TARGET_PLATFORM == PLATFORM_ESP
     set_led(led, {.red = 255, .green = 0, .blue = 0, .brightness = 50});
+#endif
     return EXIT_FAILURE;
   }
+#if TARGET_PLATFORM == PLATFORM_ESP
   set_led(led, {.red = 0, .green = 255, .blue = 0, .brightness = 50});
+#endif
   return EXIT_SUCCESS;
 }
 

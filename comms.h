@@ -5,14 +5,12 @@
 #ifndef COMMS_H
 #define COMMS_H
 
-#include "FastLED.h"
-
 # define PLATFORM_ARM 0
 # define PLATFORM_ESP 1
 # define PLATFORM_STM 2
 
 
-#define TARGET_PLATFORM PLATFORM_ESP
+#define TARGET_PLATFORM PLATFORM_ARM
 
 #if TARGET_PLATFORM == PLATFORM_STM
 #include "stm32f4xx_hal.h"
@@ -24,17 +22,14 @@
 # elif TARGET_PLATFORM == PLATFORM_ESP
 #include "ESP32DMASPIMaster.h"
 #include "types.h"
+#include "FastLED.h"
+#include "main.h"
 #define RESET ""
 #define RED ""
 #define GREEN ""
 #define YELLOW ""
 # elif TARGET_PLATFORM == PLATFORM_ARM
 #include "../types/types.h"
-<<<<<<< Updated upstream
-=======
-# elif TARGET_PLATFORM == PLATFORM_ARM
-#include "../types/types.h"
->>>>>>> Stashed changes
 #define RESET   "\033[0m"
 #define RED     "\033[31m"
 #define GREEN   "\033[32m"
