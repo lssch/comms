@@ -265,6 +265,17 @@ uint8_t Comms::CommsSlave::exchange() {
   header.response_data_length = 0;
   header.crc = 0;
 #endif
+#if TARGET_PLATFORM == PLATFORM_STM
+  HAL_SPI_Abort(hspi);
+  __HAL_RCC_SPI1_FORCE_RESET();
+  __HAL_RCC_SPI1_RELEASE_RESET();
+
+  HAL_SPI_TransmitReceive_DMA(
+          hspi,
+          tx_packet->buffer,
+          rx_packet->buffer,
+          sizeof(tx_packet->header.response_data_length)+sizeof(Comms::Comms::comms_packet_header_t));
+#endif
 
   switch (access_request.state) {
     case AccessRequestTypes::GET:
@@ -320,6 +331,11 @@ uint8_t Comms::CommsSlave::exchange() {
       header.request_data_length += sizeof(Request::Request);
     case AccessRequestTypes::IGNORE:
       break;
+  }
+
+  // TODO: This is only for test purpose to get the right response
+  for (int i = 0; i < header.response_data_length; ++i) {
+    tx_packet->data.buffer[i] = i;
   }
 
   // Set the dynamic part of the header
