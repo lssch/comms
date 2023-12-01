@@ -34,8 +34,6 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
                                                (static_cast<uint8_t>(access_request.data) << 4) |
                                                (static_cast<uint8_t>(access_request.sensor) << 2) |
                                                (static_cast<uint8_t>(access_request.state) << 0)),
-          .request_data_length = 0,
-          .response_data_length = 0,
           .crc = 0
   };
 #elif TARGET_PLATFORM == PLATFORM_ESP
@@ -52,88 +50,41 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
 #endif
 
   // Copy current values to the tx buffer based on the current request and calculate the corresponding excange package length.
-  switch (access_request.state) {
-    case AccessRequestTypes::SET:
-      memcpy(&tx_packet->data.buffer[header.request_data_length], &data->state, sizeof(State::State));
-      header.request_data_length += sizeof(State::State);
-      break;
-    case AccessRequestTypes::GET:
-      header.response_data_length += sizeof(State::State);
-      break;
-    case AccessRequestTypes::IGNORE:
-      break;
+  uint16_t tx_index{0};
+  if (access_request.state == AccessRequestTypes::SET) {
+    memcpy(&tx_packet->data.buffer[tx_index], &data->state, sizeof(State::State));
+    tx_index += sizeof(State::State);
   }
-  switch (access_request.sensor) {
-    case AccessRequestTypes::SET:
-      memcpy(&tx_packet->data.buffer[header.request_data_length],  &data->sensor, sizeof(Sensor::Sensor));
-      header.request_data_length += sizeof(Sensor::Sensor);
-      break;
-    case AccessRequestTypes::GET:
-      header.response_data_length += sizeof(Sensor::Sensor);
-      break;
-    case AccessRequestTypes::IGNORE:
-      break;
+  if (access_request.sensor == AccessRequestTypes::SET) {
+    memcpy(&tx_packet->data.buffer[tx_index], &data->sensor, sizeof(Sensor::Sensor));
+    tx_index += sizeof(Sensor::Sensor);
   }
-  switch (access_request.data) {
-    case AccessRequestTypes::SET:
-      memcpy(&tx_packet->data.buffer[header.request_data_length], &data->data, sizeof(Data::Data));
-      header.request_data_length += sizeof(Data::Data);
-      break;
-    case AccessRequestTypes::GET:
-      header.response_data_length += sizeof(Data::Data);
-      break;
-    case AccessRequestTypes::IGNORE:
-      break;
+  if (access_request.data == AccessRequestTypes::SET) {
+    memcpy(&tx_packet->data.buffer[tx_index], &data->data, sizeof(Data::Data));
+    tx_index += sizeof(Data::Data);
   }
-  switch (access_request.parameter) {
-    case AccessRequestTypes::SET:
-      memcpy(&tx_packet->data.buffer[header.request_data_length], &data->parameter, sizeof(Parameter::Parameter));
-      header.request_data_length += sizeof(Parameter::Parameter);
-      break;
-    case AccessRequestTypes::GET:
-      header.response_data_length += sizeof(Parameter::Parameter);
-      break;
-    case AccessRequestTypes::IGNORE:
-      break;
+  if (access_request.parameter == AccessRequestTypes::SET) {
+    memcpy(&tx_packet->data.buffer[tx_index], &data->parameter, sizeof(Parameter::Parameter));
+    tx_index += sizeof(Parameter::Parameter);
   }
-  switch (access_request.request) {
-    case AccessRequestTypes::SET:
-      memcpy(&tx_packet->data.buffer[header.request_data_length], &data->request, sizeof(Request::Request));
-      header.request_data_length += sizeof(Request::Request);
-      break;
-    case AccessRequestTypes::GET:
-      header.response_data_length += sizeof(Request::Request);
-      break;
-    case AccessRequestTypes::IGNORE:
-      break;
+  if (access_request.request == AccessRequestTypes::SET) {
+    memcpy(&tx_packet->data.buffer[tx_index], &data->request, sizeof(Request::Request));
+    tx_index += sizeof(Request::Request);
   }
 
+  for (int i = tx_index; i < sizeof(comms_packet_header_t) - tx_index; ++i)
+    tx_packet->data.buffer[i] = 0;
+
   // Set the dynamic part of the header
-  header.crc = crc(tx_packet->data.buffer, header.response_data_length);
+  header.crc = crc(tx_packet->data.buffer, tx_index);
   memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
 
 #if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_ESP
   std::cout << "tx-packet: " << RED;
-  for (uint8_t byte : tx_packet->header.buffer)
-    std::cout << +byte << " ";
+  for (uint8_t byte : tx_packet->header.buffer) std::cout << +byte << " ";
   std::cout << GREEN;
-  for (uint32_t i = 0; i < header.request_data_length; ++i)
-    std::cout << +tx_packet->data.buffer[i] << " ";
+  for (uint8_t byte: tx_packet->data.buffer) std::cout << +byte << " ";
   std::cout << RESET << std::endl;
-#endif
-#if TARGET_PLATFORM == PLATFORM_ARM
-  std::cout << "tx-length: ";
-  if (header_old.response_data_length > header.request_data_length)
-    std::cout << header_old.response_data_length + sizeof(comms_packet_header_t);
-  else
-    std::cout << header.request_data_length + sizeof(comms_packet_header_t);
-  std::cout << RESET << " (" << RED << sizeof(comms_packet_header_t) << RESET << ", "
-            << GREEN << +tx_packet->header.request_data_length << RESET << ", ";
-  if (header_old.response_data_length > header.request_data_length)
-    std::cout << YELLOW << header_old.response_data_length - header.request_data_length;
-  else
-    std::cout << YELLOW << "0";
-  std::cout << RESET << ") -> (H, D, B)" << std::endl;
 #endif
 
 #if TARGET_PLATFORM == PLATFORM_ESP
@@ -144,26 +95,16 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
     spi->transfer(tx_packet->buffer, rx_packet->buffer, header.request_data_length + sizeof(comms_packet_header_t));
 #endif
 
-  // Update data for the next request
-  header_old = header;
-
 #if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "rx-packet: " << RED;
-  for (uint8_t byte : rx_packet->header.buffer)
-    std::cout << +byte << " ";
+  for (uint8_t byte : rx_packet->header.buffer) std::cout << +byte << " ";
   std::cout << GREEN;
-  for (uint32_t i = 0; i < rx_packet->header.response_data_length; ++i)
-    std::cout << +rx_packet->data.buffer[i] << " ";
+  for (uint8_t byte: rx_packet->data.buffer) std::cout << +byte << " ";
   std::cout << RESET << std::endl;
-
-  std::cout << "rx-length: " << +rx_packet->header.response_data_length + sizeof(comms_packet_header_t);
-  std::cout << RESET << " (" << RED << sizeof(comms_packet_header_t) << RESET << ", "
-            << GREEN << +rx_packet->header.response_data_length << RESET
-            << ") -> (H, D)" << std::endl;
 #endif
 
   // Validate the received package
-  uint8_t calculated_checksum = crc(rx_packet->data.buffer, rx_packet->header.response_data_length);
+  uint8_t calculated_checksum = crc(rx_packet->data.buffer, sizeof(comms_packet_header_t));
   if (rx_packet->header.sync == SYNC && rx_packet->header.crc == calculated_checksum) {
     AccessRequest access_response = {
             .state = static_cast<AccessRequestTypes>(rx_packet->header.access_type & 0b00000000000011),
@@ -216,18 +157,12 @@ uint8_t Comms::CommsSlave::exchange() {
 #if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "SLAVE" << std::endl;
   std::cout << "rx-packet: " << RED;
-  for (unsigned char byte : rx_packet->header.buffer)
-    std::cout << +byte << " ";
+  for (uint8_t byte : rx_packet->header.buffer) std::cout << +byte << " ";
   std::cout << GREEN;
-  for (uint32_t i = 0; i < rx_packet->header.request_data_length; ++i)
-    std::cout << +rx_packet->data.buffer[i] << " ";
+  for (uint8_t byte: rx_packet->data.buffer) std::cout << +byte << " ";
   std::cout << RESET << std::endl;
-
-  std::cout << "rx-length: " << +rx_packet->header.request_data_length + sizeof(comms_packet_header_t);
-  std::cout << RESET << " (" << RED << sizeof(comms_packet_header_t) << RESET << ", "
-            << GREEN << +rx_packet->header.request_data_length << RESET
-            << ") -> (H, D)" << std::endl;
 #endif
+
   // Build the current access type structure
   AccessRequest access_request = {
           .state = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b00000000000011)),
@@ -238,10 +173,10 @@ uint8_t Comms::CommsSlave::exchange() {
   };
 
   // Validate the incoming data and excange accordingly
-  uint8_t calculated_checksum = crc(rx_packet->data.buffer, rx_packet->header.response_data_length);
+  uint8_t calculated_checksum = crc(rx_packet->data.buffer, sizeof(comms_packet_header_t));
   if (rx_packet->header.sync != SYNC || rx_packet->header.crc != calculated_checksum) {
-    std::cout <<"Dropping curren package... Package is corrupted.";
-    if (rx_packet->header.sync != SYNC) std::cout << " SYNC byte is invalid";
+    std::cout <<"Dropping curren package...";
+    if (rx_packet->header.sync != SYNC) std::cout << " SYNC is invalid";
     if (rx_packet->header.crc != calculated_checksum)
       std::cout << " Checksum is wrong got: " << +calculated_checksum << " expected: " << +rx_packet->header.crc;
     std::cout << std::endl;
@@ -258,8 +193,6 @@ uint8_t Comms::CommsSlave::exchange() {
                                                (static_cast<uint8_t>(access_request.data) << 4) |
                                                (static_cast<uint8_t>(access_request.sensor) << 2) |
                                                (static_cast<uint8_t>(access_request.state) << 0)),
-          .request_data_length = 0,
-          .response_data_length = 0,
           .crc = 0
   };
 #elif TARGET_PLATFORM == PLATFORM_ESP
@@ -286,85 +219,73 @@ uint8_t Comms::CommsSlave::exchange() {
           sizeof(tx_packet->header.response_data_length)+sizeof(Comms::Comms::comms_packet_header_t));
 #endif
 
+  uint16_t tx_index{0}, rx_index{0};
   switch (access_request.state) {
     case AccessRequestTypes::GET:
-      memcpy(&tx_packet->data.buffer[header.response_data_length], &data->state, sizeof(State::State));
-      header.response_data_length += sizeof(State::State);
+      memcpy(&tx_packet->data.buffer[tx_index], &data->state, sizeof(State::State));
+      tx_index += sizeof(State::State);
       break;
     case AccessRequestTypes::SET:
-      memcpy(&data->state, &rx_packet->data.buffer[header.request_data_length], sizeof(State::State));
-      header.request_data_length += sizeof(State::State);
+      memcpy(&data->state, &rx_packet->data.buffer[rx_index], sizeof(State::State));
+      rx_index += sizeof(State::State);
     case AccessRequestTypes::IGNORE:
       break;
   }
   switch (access_request.sensor) {
     case AccessRequestTypes::GET:
-      memcpy(&tx_packet->data.buffer[header.response_data_length], &data->sensor, sizeof(Sensor::Sensor));
-      header.response_data_length += sizeof(Sensor::Sensor);
+      memcpy(&tx_packet->data.buffer[tx_index], &data->sensor, sizeof(Sensor::Sensor));
+      tx_index += sizeof(Sensor::Sensor);
       break;
     case AccessRequestTypes::SET:
-      memcpy(&data->sensor, &rx_packet->data.buffer[header.request_data_length], sizeof(Sensor::Sensor));
-      header.request_data_length += sizeof(Sensor::Sensor);
+      memcpy(&data->sensor, &rx_packet->data.buffer[rx_index], sizeof(Sensor::Sensor));
+      rx_index += sizeof(Sensor::Sensor);
     case AccessRequestTypes::IGNORE:
       break;
   }
   switch (access_request.data) {
     case AccessRequestTypes::GET:
-      memcpy(&tx_packet->data.buffer[header.response_data_length], &data->data, sizeof(Data::Data));
-      header.response_data_length += sizeof(Data::Data);
+      memcpy(&tx_packet->data.buffer[tx_index], &data->data, sizeof(Data::Data));
+      tx_index += sizeof(Data::Data);
       break;
     case AccessRequestTypes::SET:
-      memcpy(&data->data, &rx_packet->data.buffer[header.request_data_length], sizeof(Data::Data));
-      header.request_data_length += sizeof(Data::Data);
+      memcpy(&data->data, &rx_packet->data.buffer[rx_index], sizeof(Data::Data));
+      rx_index += sizeof(Data::Data);
     case AccessRequestTypes::IGNORE:
       break;
   }
   switch (access_request.parameter) {
     case AccessRequestTypes::GET:
-      memcpy(&tx_packet->data.buffer[header.response_data_length], &data->parameter, sizeof(Parameter::Parameter));
-      header.response_data_length += sizeof(Parameter::Parameter);
+      memcpy(&tx_packet->data.buffer[tx_index], &data->parameter, sizeof(Parameter::Parameter));
+      tx_index += sizeof(Parameter::Parameter);
       break;
     case AccessRequestTypes::SET:
-      memcpy(&data->parameter, &rx_packet->data.buffer[header.request_data_length], sizeof(Parameter::Parameter));
-      header.request_data_length += sizeof(Parameter::Parameter);
+      memcpy(&data->parameter, &rx_packet->data.buffer[rx_index], sizeof(Parameter::Parameter));
+      rx_index += sizeof(Parameter::Parameter);
     case AccessRequestTypes::IGNORE:
       break;
   }
   switch (access_request.request) {
     case AccessRequestTypes::GET:
-      memcpy(&tx_packet->data.buffer[header.response_data_length], &data->request, sizeof(Request::Request));
-      header.response_data_length += sizeof(Request::Request);
+      memcpy(&tx_packet->data.buffer[tx_index], &data->request, sizeof(Request::Request));
+      tx_index += sizeof(Request::Request);
       break;
     case AccessRequestTypes::SET:
-      memcpy(&data->request, &rx_packet->data.buffer[header.request_data_length], sizeof(Request::Request));
-      header.request_data_length += sizeof(Request::Request);
+      memcpy(&data->request, &rx_packet->data.buffer[rx_index], sizeof(Request::Request));
+      rx_index += sizeof(Request::Request);
     case AccessRequestTypes::IGNORE:
       break;
   }
 
-  // TODO: This is only for test purpose to get the right response
-  for (int i = 0; i < header.response_data_length; ++i) {
-    tx_packet->data.buffer[i] = i;
-  }
-
   // Set the dynamic part of the header
-  header.crc = crc(tx_packet->data.buffer, header.response_data_length);
-  // TODO: This can be optimized with pointers.
+  header.crc = crc(tx_packet->data.buffer, tx_index);
   memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
 
 #if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "tx-packet: " << RED;
-  for (unsigned char byte : tx_packet->header.buffer)
-    std::cout << +byte << " ";
+  for (uint8_t byte : tx_packet->header.buffer) std::cout << +byte << " ";
   std::cout << GREEN;
-  for (uint32_t i = 0; i < header.response_data_length; ++i)
-    std::cout << +tx_packet->data.buffer[i] << " ";
+  for (uint8_t byte: tx_packet->data.buffer) std::cout << +byte << " ";
   std::cout << RESET << std::endl;
-
-  std::cout << "tx-length: " << header.response_data_length + sizeof(comms_packet_header_t);
-  std::cout << RESET << " (" << RED << sizeof(comms_packet_header_t) << RESET << ", "
-            << GREEN << +tx_packet->header.response_data_length << RESET
-            << ") -> (H, D)" << std::endl;
 #endif
 
   return EXIT_SUCCESS;

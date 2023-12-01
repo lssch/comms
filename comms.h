@@ -36,8 +36,6 @@
 #define YELLOW  "\033[33m"
 #endif
 
-#include <cstdint>
-
 #define SYNC 0xAA
 
 namespace Comms {
@@ -47,7 +45,7 @@ namespace Comms {
     GET,
   };
 
-  class __attribute__ ((__packed__)) AccessRequest {
+  class AccessRequest {
   public:
     AccessRequestTypes state;
     AccessRequestTypes sensor;
@@ -56,25 +54,22 @@ namespace Comms {
     AccessRequestTypes request;
   };
 
-
   class Comms {
   public:
     typedef union _comms_packet_header_t {
       struct {
         uint8_t sync;
         uint16_t access_type;
-        uint16_t request_data_length;
-        uint16_t response_data_length;
         uint8_t crc;
       } __attribute__((packed));
       uint8_t buffer[8];
-    } __attribute__((packed)) comms_packet_header_t;
+    } comms_packet_header_t;
 
     typedef union _comms_packet_t {
       struct {
         comms_packet_header_t header;
         robocar_data_t data;
-      } __attribute__((packed)) ;
+      };
       uint8_t buffer[sizeof(comms_packet_header_t) + sizeof(robocar_data_t)];
     } comms_packet_t;
 
@@ -106,7 +101,6 @@ namespace Comms {
 #endif
     virtual uint8_t exchange(AccessRequest access_request);
   private:
-    comms_packet_header_t header_old{};
 #if TARGET_PLATFORM == PLATFORM_ESP
     ESP32DMASPI::Master *spi;
     CRGB* led;
