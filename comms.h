@@ -5,12 +5,14 @@
 #ifndef COMMS_H
 #define COMMS_H
 
+#include "FastLED.h"
+
 # define PLATFORM_ARM 0
 # define PLATFORM_ESP 1
 # define PLATFORM_STM 2
 
 
-#define TARGET_PLATFORM PLATFORM_STM
+#define TARGET_PLATFORM PLATFORM_ESP
 
 #if TARGET_PLATFORM == PLATFORM_STM
 #include "stm32f4xx_hal.h"
@@ -21,7 +23,7 @@
 #define YELLOW ""
 # elif TARGET_PLATFORM == PLATFORM_ESP
 #include "ESP32DMASPIMaster.h"
-#include "types/types.h"
+#include "types.h"
 #define RESET ""
 #define RED ""
 #define GREEN ""
@@ -99,7 +101,10 @@ namespace Comms {
   public:
 # if TARGET_PLATFORM == PLATFORM_ESP
     CommsMaster(comms_packet_t *ptr_rx_data, comms_packet_t *ptr_tx_data, robocar_data_t *ptr_data,
-                ESP32DMASPI::Master *ptr_spi_master) : Comms(ptr_rx_data, ptr_tx_data, ptr_data), spi(ptr_spi_master) {};
+                ESP32DMASPI::Master *ptr_spi_master, CRGB* led_)
+                : Comms(ptr_rx_data, ptr_tx_data, ptr_data),
+                spi(ptr_spi_master),
+                led(led_) {};
 # elif TARGET_PLATFORM == PLATFORM_ARM
     CommsMaster(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data)
           : Comms(ptr_rx_data, ptr_tx_data, ptr_data) {};
@@ -109,6 +114,7 @@ namespace Comms {
     comms_packet_header_t header_old{};
 #if TARGET_PLATFORM == PLATFORM_ESP
     ESP32DMASPI::Master *spi;
+    CRGB* led;
 #endif
   };
 

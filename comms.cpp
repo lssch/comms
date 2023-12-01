@@ -3,6 +3,7 @@
 //
 
 #include "comms.h"
+#include "main.h"
 #include <iostream>
 #include <bitset>
 #include <cstring>
@@ -20,10 +21,11 @@ uint8_t Comms::Comms::exchange() {
 }
 
 uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
-  std::cout << "MASTER" << std::endl;
+  set_led(led, {.red = 0, .green = 0, .blue = 255, .brightness = 50});
   // Generate a new request header based on the current request
 // TODO: WTF why? It works on ARM Platform but not on AVR! Same implementation on both devices
 #if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_STM
+  std::cout << "MASTER" << std::endl;
   comms_packet_header_t header = {
           .sync = SYNC,
           .access_type = static_cast<uint16_t>((static_cast<uint8_t>(access_request.request) << 8) |
@@ -109,7 +111,7 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
   header.crc = crc(tx_packet->data.buffer, header.response_data_length);
   memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
 
-#if TARGET_PLATFORM == PLATFORM_ARM
+#if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_ESP
   std::cout << "tx-packet: " << RED;
   for (uint8_t byte : tx_packet->header.buffer)
     std::cout << +byte << " ";
@@ -117,7 +119,8 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
   for (uint32_t i = 0; i < header.request_data_length; ++i)
     std::cout << +tx_packet->data.buffer[i] << " ";
   std::cout << RESET << std::endl;
-
+#endif
+#if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "tx-length: ";
   if (header_old.response_data_length > header.request_data_length)
     std::cout << header_old.response_data_length + sizeof(comms_packet_header_t);
@@ -192,14 +195,15 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
       rx_index += sizeof(Request::Request);
     }
   } else {
-    std::cout <<"Dropping curren package... Package is corrupted.";
-    if (rx_packet->header.sync != SYNC) std::cout << " SYNC byte is invalid";
+    std::cout <<"Dropping curren package...";
+    if (rx_packet->header.sync != SYNC) std::cout << " SYNC is invalid";
     if (rx_packet->header.crc != calculated_checksum)
       std::cout << " Checksum is wrong got: " << +calculated_checksum << " expected: " << +rx_packet->header.crc;
     std::cout << std::endl;
+    set_led(led, {.red = 255, .green = 0, .blue = 0, .brightness = 50});
     return EXIT_FAILURE;
   }
-
+  set_led(led, {.red = 0, .green = 255, .blue = 0, .brightness = 50});
   return EXIT_SUCCESS;
 }
 
