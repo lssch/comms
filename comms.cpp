@@ -7,10 +7,11 @@
 #include <bitset>
 #include <cstring>
 
-inline uint8_t Comms::Comms::crc(const uint8_t *data_, uint16_t length) {
+inline uint8_t Comms::Comms::crc(const uint8_t *bytes, uint16_t length) {
   uint8_t sum = 0;
   for (uint16_t i = 0; i < length; ++i) {
-    sum += data_[i];
+    sum += bytes[i];
+    //std::cout << "Index: " << +i << " current sum value: " << +sum << " with byte value: " << +bytes[i] << std::endl;
   }
   return sum;
 }
@@ -71,21 +72,19 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
     tx_index += sizeof(Request::Request);
   }
 
-  for (int i = tx_index; i < sizeof(comms_packet_t) - tx_index; ++i)
+  for (int i = tx_index; i < sizeof(robocar_data_t); ++i)
     tx_packet->data.buffer[i] = 0;
 
-  std::cout << "after for loop" << std::endl;
-
   // Set the dynamic part of the header
-  header.crc = crc(tx_packet->data.buffer, tx_index);
-  memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_t));
+  header.crc = crc(tx_packet->data.buffer, sizeof(robocar_data_t));
+  memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
 
 #if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_ESP
   std::cout << "tx-packet: " << RED;
   for (uint8_t byte : tx_packet->header.buffer) std::cout << +byte << " ";
   std::cout << GREEN;
   for (uint8_t byte: tx_packet->data.buffer) std::cout << +byte << " ";
-  std::cout << RESET << std::endl;
+  std::cout<< RESET << std::endl;
 #endif
 
 #if TARGET_PLATFORM == PLATFORM_ESP
@@ -93,7 +92,7 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
     spi->transfer(tx_packet->buffer, rx_packet->buffer, sizeof(comms_packet_t));
 #endif
 
-#if TARGET_PLATFORM == PLATFORM_ESP
+#if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_ESP
   std::cout << "rx-packet: " << RED;
   for (uint8_t byte : rx_packet->header.buffer) std::cout << +byte << " ";
   std::cout << GREEN;
@@ -102,7 +101,7 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
 #endif
 
   // Validate the received package
-  uint8_t calculated_checksum = crc(rx_packet->data.buffer, sizeof(comms_packet_t) - sizeof(comms_packet_header_t));
+  uint8_t calculated_checksum = crc(rx_packet->data.buffer, sizeof(robocar_data_t));
   if (rx_packet->header.sync == SYNC && rx_packet->header.crc == calculated_checksum) {
     AccessRequest access_response = {
             .state = static_cast<AccessRequestTypes>(rx_packet->header.access_type & 0b00000000000011),
@@ -171,7 +170,7 @@ uint8_t Comms::CommsSlave::exchange() {
   };
 
   // Validate the incoming data and excange accordingly
-  uint8_t calculated_checksum = crc(rx_packet->data.buffer, sizeof(comms_packet_t) - sizeof(comms_packet_header_t));
+  uint8_t calculated_checksum = crc(rx_packet->data.buffer, sizeof(robocar_data_t));
   if (rx_packet->header.sync != SYNC || rx_packet->header.crc != calculated_checksum) {
     std::cout <<"Dropping curren package...";
     if (rx_packet->header.sync != SYNC) std::cout << " SYNC is invalid";
@@ -264,12 +263,12 @@ uint8_t Comms::CommsSlave::exchange() {
       break;
   }
 
-  for (int i = tx_index; i < sizeof(comms_packet_t) - tx_index; ++i)
+  for (int i = tx_index; i < sizeof(robocar_data_t); ++i)
     tx_packet->data.buffer[i] = 0;
 
   // Set the dynamic part of the header
   header.crc = crc(tx_packet->data.buffer, tx_index);
-  memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_t));
+  memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
 
 #if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "tx-packet: " << RED;

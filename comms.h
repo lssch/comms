@@ -9,12 +9,7 @@
 # define PLATFORM_ESP 1
 # define PLATFORM_STM 2
 
-
-<<<<<<< Updated upstream
-#define TARGET_PLATFORM PLATFORM_STM
-=======
-#define TARGET_PLATFORM PLATFORM_ESP
->>>>>>> Stashed changes
+#define TARGET_PLATFORM PLATFORM_ARM
 
 #if TARGET_PLATFORM == PLATFORM_STM
 #include "stm32f4xx_hal.h"
@@ -83,7 +78,7 @@ namespace Comms {
             data(ptr_data) {};
 
   protected:
-    inline uint8_t crc(const uint8_t *data_, uint16_t length);
+    inline uint8_t crc(const uint8_t *bytes, uint16_t length);
     virtual uint8_t exchange();
 
     comms_packet_t* rx_packet;
