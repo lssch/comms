@@ -10,7 +10,11 @@
 # define PLATFORM_STM 2
 
 
+<<<<<<< Updated upstream
 #define TARGET_PLATFORM PLATFORM_STM
+=======
+#define TARGET_PLATFORM PLATFORM_ESP
+>>>>>>> Stashed changes
 
 #if TARGET_PLATFORM == PLATFORM_STM
 #include "stm32f4xx_hal.h"

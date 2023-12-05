@@ -25,8 +25,8 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
 #endif
   // Generate a new request header based on the current request
 // TODO: WTF why? It works on ARM Platform but not on AVR! Same implementation on both devices
-#if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_STM
   std::cout << "MASTER" << std::endl;
+#if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_STM
   comms_packet_header_t header = {
           .sync = SYNC,
           .access_type = static_cast<uint16_t>((static_cast<uint8_t>(access_request.request) << 8) |
@@ -36,16 +36,15 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
                                                (static_cast<uint8_t>(access_request.state) << 0)),
           .crc = 0
   };
-#elif TARGET_PLATFORM == PLATFORM_ESP
+#endif
+#if TARGET_PLATFORM == PLATFORM_ESP
   comms_packet_header_t header;
   header.sync = SYNC;
   header.access_type = static_cast<uint16_t>((static_cast<uint8_t>(access_request.request) << 8) |
-                                             (static_cast<uint8_t>(access_request.parameter) << 6) |
-                                             (static_cast<uint8_t>(access_request.data) << 4) |
-                                             (static_cast<uint8_t>(access_request.sensor) << 2) |
-                                             (static_cast<uint8_t>(access_request.state) << 0)),
-  header.request_data_length = 0;
-  header.response_data_length = 0;
+                                       (static_cast<uint8_t>(access_request.parameter) << 6) |
+                                       (static_cast<uint8_t>(access_request.data) << 4) |
+                                       (static_cast<uint8_t>(access_request.sensor) << 2) |
+                                       (static_cast<uint8_t>(access_request.state) << 0));
   header.crc = 0;
 #endif
 
@@ -72,12 +71,14 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
     tx_index += sizeof(Request::Request);
   }
 
-  for (int i = tx_index; i < sizeof(comms_packet_header_t) - tx_index; ++i)
+  for (int i = tx_index; i < sizeof(comms_packet_t) - tx_index; ++i)
     tx_packet->data.buffer[i] = 0;
+
+  std::cout << "after for loop" << std::endl;
 
   // Set the dynamic part of the header
   header.crc = crc(tx_packet->data.buffer, tx_index);
-  memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
+  memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_t));
 
 #if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_ESP
   std::cout << "tx-packet: " << RED;
@@ -89,13 +90,10 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
 
 #if TARGET_PLATFORM == PLATFORM_ESP
   // TODO: Not sure if the length must be a multiple of 4. Got some warning in the code: [WARN] DMA buffer size must be multiples of 4 bytes
-  if (header_old.response_data_length > header.request_data_length)
-    spi->transfer(tx_packet->buffer, rx_packet->buffer, header_old.response_data_length + sizeof(comms_packet_header_t));
-  else
-    spi->transfer(tx_packet->buffer, rx_packet->buffer, header.request_data_length + sizeof(comms_packet_header_t));
+    spi->transfer(tx_packet->buffer, rx_packet->buffer, sizeof(comms_packet_t));
 #endif
 
-#if TARGET_PLATFORM == PLATFORM_ARM
+#if TARGET_PLATFORM == PLATFORM_ESP
   std::cout << "rx-packet: " << RED;
   for (uint8_t byte : rx_packet->header.buffer) std::cout << +byte << " ";
   std::cout << GREEN;
@@ -104,7 +102,7 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
 #endif
 
   // Validate the received package
-  uint8_t calculated_checksum = crc(rx_packet->data.buffer, sizeof(comms_packet_header_t));
+  uint8_t calculated_checksum = crc(rx_packet->data.buffer, sizeof(comms_packet_t) - sizeof(comms_packet_header_t));
   if (rx_packet->header.sync == SYNC && rx_packet->header.crc == calculated_checksum) {
     AccessRequest access_response = {
             .state = static_cast<AccessRequestTypes>(rx_packet->header.access_type & 0b00000000000011),
@@ -203,8 +201,6 @@ uint8_t Comms::CommsSlave::exchange() {
                                              (static_cast<uint8_t>(access_request.data) << 4) |
                                              (static_cast<uint8_t>(access_request.sensor) << 2) |
                                              (static_cast<uint8_t>(access_request.state) << 0)),
-  header.request_data_length = 0;
-  header.response_data_length = 0;
   header.crc = 0;
 #endif
 #if TARGET_PLATFORM == PLATFORM_STM
