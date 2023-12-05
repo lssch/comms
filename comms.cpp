@@ -173,7 +173,7 @@ uint8_t Comms::CommsSlave::exchange() {
   };
 
   // Validate the incoming data and excange accordingly
-  uint8_t calculated_checksum = crc(rx_packet->data.buffer, sizeof(comms_packet_header_t));
+  uint8_t calculated_checksum = crc(rx_packet->data.buffer, sizeof(comms_packet_t) - sizeof(comms_packet_header_t));
   if (rx_packet->header.sync != SYNC || rx_packet->header.crc != calculated_checksum) {
     std::cout <<"Dropping curren package...";
     if (rx_packet->header.sync != SYNC) std::cout << " SYNC is invalid";
@@ -208,15 +208,7 @@ uint8_t Comms::CommsSlave::exchange() {
   header.crc = 0;
 #endif
 #if TARGET_PLATFORM == PLATFORM_STM
-  HAL_SPI_Abort(hspi);
-  __HAL_RCC_SPI1_FORCE_RESET();
-  __HAL_RCC_SPI1_RELEASE_RESET();
-
-  HAL_SPI_TransmitReceive_DMA(
-          hspi,
-          tx_packet->buffer,
-          rx_packet->buffer,
-          sizeof(tx_packet->header.response_data_length)+sizeof(Comms::Comms::comms_packet_header_t));
+  HAL_SPI_Transmit_DMA(hspi,tx_packet->buffer,sizeof(Comms::Comms::comms_packet_t));
 #endif
 
   uint16_t tx_index{0}, rx_index{0};
@@ -276,9 +268,12 @@ uint8_t Comms::CommsSlave::exchange() {
       break;
   }
 
+  for (int i = tx_index; i < sizeof(comms_packet_t) - tx_index; ++i)
+    tx_packet->data.buffer[i] = 0;
+
   // Set the dynamic part of the header
   header.crc = crc(tx_packet->data.buffer, tx_index);
-  memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
+  memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_t));
 
 #if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "tx-packet: " << RED;

@@ -10,7 +10,7 @@
 # define PLATFORM_STM 2
 
 
-#define TARGET_PLATFORM PLATFORM_ARM
+#define TARGET_PLATFORM PLATFORM_STM
 
 #if TARGET_PLATFORM == PLATFORM_STM
 #include "stm32f4xx_hal.h"
@@ -62,7 +62,7 @@ namespace Comms {
         uint16_t access_type;
         uint8_t crc;
       } __attribute__((packed));
-      uint8_t buffer[8];
+      uint8_t buffer[4];
     } comms_packet_header_t;
 
     typedef union _comms_packet_t {
