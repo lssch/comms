@@ -21,12 +21,11 @@ uint8_t Comms::Comms::exchange() {
 }
 
 uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
-#if TARGET_PLATFORM == PLATFORM_ESP
-  set_led(led, {.red = 0, .green = 0, .blue = 255, .brightness = 50});
+#if TARGET_PLATFORM == PLATFORM_ARM
+  std::cout << "MASTER" << std::endl;
 #endif
   // Generate a new request header based on the current request
 // TODO: WTF why? It works on ARM Platform but not on AVR! Same implementation on both devices
-  std::cout << "MASTER" << std::endl;
 #if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_STM
   comms_packet_header_t header = {
           .sync = SYNC,
@@ -79,7 +78,7 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
   header.crc = crc(tx_packet->data.buffer, sizeof(robocar_data_t));
   memcpy(tx_packet->header.buffer, header.buffer, sizeof(comms_packet_header_t));
 
-#if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_ESP
+#if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "tx-packet: " << RED;
   for (uint8_t byte : tx_packet->header.buffer) std::cout << +byte << " ";
   std::cout << GREEN;
@@ -88,11 +87,11 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
 #endif
 
 #if TARGET_PLATFORM == PLATFORM_ESP
-  // TODO: Not sure if the length must be a multiple of 4. Got some warning in the code: [WARN] DMA buffer size must be multiples of 4 bytes
-    spi->transfer(tx_packet->buffer, rx_packet->buffer, sizeof(comms_packet_t));
+    spi->queue(tx_packet->buffer, rx_packet->buffer, sizeof(comms_packet_t));
+    spi->yield();
 #endif
 
-#if TARGET_PLATFORM == PLATFORM_ARM || TARGET_PLATFORM == PLATFORM_ESP
+#if TARGET_PLATFORM == PLATFORM_ARM
   std::cout << "rx-packet: " << RED;
   for (uint8_t byte : rx_packet->header.buffer) std::cout << +byte << " ";
   std::cout << GREEN;
@@ -139,14 +138,8 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
     if (rx_packet->header.crc != calculated_checksum)
       std::cout << " Checksum is wrong got: " << +calculated_checksum << " expected: " << +rx_packet->header.crc;
     std::cout << std::endl;
-#if TARGET_PLATFORM == PLATFORM_ESP
-    set_led(led, {.red = 255, .green = 0, .blue = 0, .brightness = 50});
-#endif
     return EXIT_FAILURE;
   }
-#if TARGET_PLATFORM == PLATFORM_ESP
-  set_led(led, {.red = 0, .green = 255, .blue = 0, .brightness = 50});
-#endif
   return EXIT_SUCCESS;
 }
 
