@@ -152,7 +152,6 @@ uint8_t Comms::CommsSlave::exchange() {
   for (uint8_t byte: rx_packet->data.buffer) std::cout << +byte << " ";
   std::cout << RESET << std::endl;
 #endif
-
   // Build the current access type structure
   AccessRequest access_request = {
           .state = static_cast<AccessRequestTypes>((rx_packet->header.access_type & 0b00000000000011)),
@@ -194,9 +193,6 @@ uint8_t Comms::CommsSlave::exchange() {
                                              (static_cast<uint8_t>(access_request.sensor) << 2) |
                                              (static_cast<uint8_t>(access_request.state) << 0)),
   header.crc = 0;
-#endif
-#if TARGET_PLATFORM == PLATFORM_STM
-  HAL_SPI_Transmit_DMA(hspi,tx_packet->buffer,sizeof(Comms::Comms::comms_packet_t));
 #endif
 
   uint16_t tx_index{0}, rx_index{0};
