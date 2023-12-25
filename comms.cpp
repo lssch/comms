@@ -41,7 +41,7 @@ uint8_t Comms::CommsMaster::exchange(AccessRequest access_request) {
   comms_packet_header_t header;
   header.sync = SYNC;
   header.access_type = static_cast<uint16_t>((static_cast<uint8_t>(access_request.request) << 8) |
-                                       (static_cast<uint8_t>(access_request.parameter) << 6) |
+                                       (static_cast<uint8_t>(access_request._parameter) << 6) |
                                        (static_cast<uint8_t>(access_request.data) << 4) |
                                        (static_cast<uint8_t>(access_request.sensor) << 2) |
                                        (static_cast<uint8_t>(access_request.state) << 0));
@@ -188,7 +188,7 @@ uint8_t Comms::CommsSlave::exchange() {
   comms_packet_header_t header;
   header.sync = SYNC;
   header.access_type = static_cast<uint16_t>((static_cast<uint8_t>(access_request.request) << 8) |
-                                             (static_cast<uint8_t>(access_request.parameter) << 6) |
+                                             (static_cast<uint8_t>(access_request._parameter) << 6) |
                                              (static_cast<uint8_t>(access_request.data) << 4) |
                                              (static_cast<uint8_t>(access_request.sensor) << 2) |
                                              (static_cast<uint8_t>(access_request.state) << 0)),
