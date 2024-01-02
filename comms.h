@@ -36,7 +36,7 @@
 #define SYNC 0xAA
 
 namespace Comms {
-  enum class AccessRequestTypes: uint8_t {
+  enum class AccessRequestType: uint8_t {
     IGNORE = 0,
     SET,
     GET,
@@ -44,11 +44,11 @@ namespace Comms {
 
   class AccessRequest {
   public:
-    AccessRequestTypes state;
-    AccessRequestTypes sensor;
-    AccessRequestTypes data;
-    AccessRequestTypes parameter;
-    AccessRequestTypes request;
+    AccessRequestType state;
+    AccessRequestType sensor;
+    AccessRequestType data;
+    AccessRequestType parameter;
+    AccessRequestType request;
   };
 
   class Comms {
@@ -70,13 +70,28 @@ namespace Comms {
       uint8_t buffer[sizeof(comms_packet_header_t) + sizeof(robocar_data_t)];
     } comms_packet_t;
 
+    /// @brief General Comms object. Master and Slaves are both derived by this class.
+    /// @param[in] ptr_rx_data Pointer to the rx buffer.
+    /// @param[out] ptr_tx_data Pointer to the tx buffer.
+    /// @param[in,out] ptr_data Pointer to the actual data which needs to be synchronized.
+    /// @todo Rewrite this module with separate files for ESP, ARM, STM support e.g. comms_ESP.
+    /// @todo Change all pointer to references.
+    /// @todo Apply naming convention.
     Comms(comms_packet_t* ptr_rx_data, comms_packet_t* ptr_tx_data, robocar_data_t* ptr_data):
             rx_packet(ptr_rx_data),
             tx_packet(ptr_tx_data),
             data(ptr_data) {};
 
   protected:
-    inline uint8_t crc(const uint8_t *bytes, uint16_t length);
+    /// @brief Basic checksum function which adds all the data up
+    /// @param[in] bytes Pointer to the data.
+    /// @param[in] length Number of bytes to sum up.
+    /// @return sum of the given data.
+    /// @todo Implement a better crc protocol.
+    inline uint8_t crc(const uint8_t *bytes, const uint16_t length);
+
+    /// @brief Exchanges a package between the two instances.
+    /// @return SUCCESS if the exchange was valid. ERROR if the exchange was invalid.
     virtual uint8_t exchange();
 
     comms_packet_t* rx_packet;
